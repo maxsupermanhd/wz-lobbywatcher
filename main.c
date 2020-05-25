@@ -77,7 +77,7 @@ int main() {
 	gamescount = ntohl(gamescount);
 	char msgcount[2000];
 	snprintf(msgcount, 2000, "Games in lobby: %d\n", gamescount);
-	strcat(msgcount, "`players |        room name          |      host       |            map            |     version    | `\n");
+	strcat(msgcount, "players |        room name          |      host       |            map            |     version    | \n");
 	for(uint32_t gamenumber = 0; gamenumber < gamescount; gamenumber++) {
 		uint32_t gamestructversion = 0;
 		fread(&gamestructversion, sizeof(uint32_t), 1, lobbyfile);
@@ -151,11 +151,13 @@ int main() {
 	uint32_t lobbyCode, motdlen;
 	fread(&lobbyCode, sizeof(uint32_t), 1, lobbyfile);
 	fread(&motdlen, sizeof(uint32_t), 1, lobbyfile);
-	char* motd;
-	motd = (char*)malloc(motdlen+1);
-	fread(motd, sizeof(char), motdlen, lobbyfile);
-	motd[motdlen-1]='\0';
-	strcat(msgcount, motd);
+	if(motdlen>0) {
+		char* motd;
+		motd = (char*)malloc(motdlen+1);
+		fread(motd, sizeof(char), motdlen, lobbyfile);
+		motd[motdlen-1]='\0';
+		strcat(msgcount, motd);
+	}
 	puts(msgcount);
 	fclose(lobbyfile);
 	return 0;
