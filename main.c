@@ -31,7 +31,7 @@ void delay(int milli_seconds) {
 }
 
 char* ConnectReadLobby() {
-	int sockfd = 0, n = 0;
+	int sockfd = 0;
 	char* recvBuff = (char*)malloc(recvBuffSize);
 	struct sockaddr_in serv_addr;
 	memset(recvBuff, 'g', recvBuffSize);
@@ -51,16 +51,16 @@ char* ConnectReadLobby() {
 		return NULL;
 	}
 	write(sockfd, "list", strlen("list"));
-	delay(50000);
-	while ( (n = read(sockfd, recvBuff, recvBuffSize-1)) > 0) {
-		recvBuff[n] = 0;
-		if(fputs(recvBuff, stdout) == EOF) {
-			printf("\n Error : Fputs error\n");
-		}
+	delay(100);
+	int n = 0, s = 0, t = 0;
+	n = read(sockfd, recvBuff, recvBuffSize-1);
+	while(n==0) {
+		delay(10);
+		n = read(sockfd, recvBuff, recvBuffSize-1);
 	}
-	if(n < 0){
-	printf("\n Read error \n");
-	}
+	recvBuff[n] = '\0';
+	recvBuff[n+1] = '\0';
+	close(sockfd);
 	return recvBuff;
 }
 
@@ -157,6 +157,19 @@ int main() {
 		fread(motd, sizeof(char), motdlen, lobbyfile);
 		motd[motdlen-1]='\0';
 		strcat(msgcount, motd);
+	} else {
+		printf("len %ld\n", strlen(msg));
+		if(msg == NULL)
+			printf("NULL\n");
+		for(int i=1; i<strlen(msg); i++) {
+			printf("%02x ",msg[i-1]);
+			if(i % 8 == 0 && i != 0)
+				printf(" ");
+			if(i % 16 == 0 && i != 0)
+				printf(" | [%.*s]\n", 16, msg+(i-1)-16);
+			if(i+1 == strlen(msg))
+				printf(" | [%.*s]\n", i%16, msg+(i-1)-i%16);
+		}
 	}
 	puts(msgcount);
 	fclose(lobbyfile);
