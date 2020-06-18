@@ -22,7 +22,7 @@
 #define NO_TANKS 2
 #define NO_BORGS 4
 
-#define recvBuffSize 4096
+#define recvBuffSize 9999999
 
 void delay(int milli_seconds) {
     clock_t start_time = clock();
@@ -51,15 +51,17 @@ char* ConnectReadLobby() {
 		return NULL;
 	}
 	write(sockfd, "list", strlen("list"));
-	delay(100);
 	int n = 0, s = 0, t = 0;
-	n = read(sockfd, recvBuff, recvBuffSize-1);
-	while(n==0) {
-		delay(10);
-		n = read(sockfd, recvBuff, recvBuffSize-1);
+	while(1) {
+		printf("Reading offset %d\n", s);
+		n = read(sockfd, recvBuff+s, recvBuffSize-1-s);
+		printf("Readed %d\n", n);
+		if(n>0)
+			s+=n;
+		else
+			break;
 	}
-	recvBuff[n] = '\0';
-	recvBuff[n+1] = '\0';
+	recvBuff[s]='\0';
 	close(sockfd);
 	return recvBuff;
 }
