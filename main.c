@@ -206,7 +206,7 @@ void ClearScreen() {
 }
 
 int main(int argc, char** argv) {
-	int interval = 1000;
+	int interval = 5000000;
 	if(argc >= 1)
 		interval = atoi(argv[1]);
 	signal(SIGINT, CatchInterrupt);
