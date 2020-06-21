@@ -55,3 +55,5 @@ dkms.conf
 # temp file
 
 l.bin
+
+players.known*
