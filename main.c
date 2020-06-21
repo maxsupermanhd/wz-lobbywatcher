@@ -376,7 +376,8 @@ int main(int argc, char** argv) {
 						if(notifynopass && !IsPrivate) {
 							break;
 						}
-						char messagecmd[512] = {0};
+						char* messagecmd = malloc(512);
+						for(int i=0; i<512; i++) {messagecmd[i] = '\0';}
 						char* escapedmapname = dupesc(mapname);
 						char* escapedgname = dupesc(gname);
 						char* escapedhostname = dupesc(hostname);
