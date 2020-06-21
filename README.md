@@ -1,15 +1,14 @@
 # wz-lobbywatcher
 Small script that shows up Warzone2100 lobby to stdout.
-
 # compile
 `gcc main.c`
-
 # run
 `./a.out`
+# arguments
+`-notify` for sending notifications about new rooms
 
-# delay between refresh
-Can be set via first argument, in seconds. (integer)
+`-c` for compact mode
 
-Example: `./a.out 3` for 3 second delay
+`-t <delay>` set *delay*
 
-P.S. Don't use 0 delay, this will DDoS lobbyserver.
+use `--help` or `-h` for more info
