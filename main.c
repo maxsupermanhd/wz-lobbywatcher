@@ -201,13 +201,13 @@ void CatchInterrupt(int s) {
 }
 
 void ClearScreen() {
-	system("clear\n");
+	printf("\033[H\033[J");
 	printf("Lobby watcher v0.1 [use Ctr-C to stop]\n");
 }
 
 int main(int argc, char** argv) {
 	int interval = 5000000;
-	if(argc >= 1)
+	if(argc >= 2)
 		interval = atoi(argv[1]);
 	signal(SIGINT, CatchInterrupt);
 	setbuf(stdout, 0);
@@ -329,7 +329,7 @@ int main(int argc, char** argv) {
 		}
 		puts(msgcount);
 		fclose(lobbyfile);
-		delay(interval);
+		sleep(interval);
 	}
 	return 0;
 }
