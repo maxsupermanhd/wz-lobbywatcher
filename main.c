@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define	StringSize		64
 #define HostIPSize      40
@@ -206,7 +207,7 @@ void ClearScreen() {
 }
 
 int main(int argc, char** argv) {
-	int interval = 5000000;
+	int interval = 2;
 	if(argc >= 2)
 		interval = atoi(argv[1]);
 	signal(SIGINT, CatchInterrupt);
