@@ -278,15 +278,17 @@ int main(int argc, char** argv) {
 	while(1) {
 		printf("Connecting to lobby...\n");
 		char* msg = ConnectReadLobby();
-		ClearScreen();
 		if(msg == NULL) {
 			printf("Can not read lobby responce!\n");
+			WritePlayers();
 			return 1;
 		}
+		ClearScreen();
 		FILE* lobbyfile;
 		lobbyfile = fmemopen(msg, recvBuffSize, "r");
 		if(lobbyfile == NULL) {
 			printf("File opening error: %s\n", strerror(errno));
+			WritePlayers();
 			return 1;
 		}
 		uint32_t gamescount = 0;
@@ -370,7 +372,7 @@ int main(int argc, char** argv) {
 			}
 			char message[2000];
 			if(compact) {
-				snprintf(message, 2000, "╔%2d/%-2d Map: [%-25.25s] [%-16.16s]\n╚     Host: [%-25.25s] (%-16.16s) %.24s\n", currplayers, maxplayers, mapname, gname, hostname, versionstr, extrastr);
+				snprintf(message, 2000, "╔%2d/%-2d Map: [%-25.25s] [%-36.36s]\n╚     Host: [%-25.25s] (%-16.16s) %.24s\n", currplayers, maxplayers, mapname, gname, hostname, versionstr, extrastr);
 			} else {
 				snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
 			}
