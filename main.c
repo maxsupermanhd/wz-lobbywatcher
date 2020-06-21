@@ -314,8 +314,30 @@ int main(int argc, char** argv) {
 			
 			GIDhistorynew[GIDhistcountnew] = GID;
 			GIDhistcountnew++;
+			if(GIDhistcount != -1) {
+				for(int i=0; i<GIDhistcountnew; i++) {
+					int found = 0;
+					for(int j=0; j<GIDhistcount; j++) {
+						if(GIDhistory[j] == GIDhistorynew[i]) {
+							found = 1;
+							break;
+						}
+					}
+					if(!found && notify) {
+						char* messagecmd = malloc(512);
+						snprintf(messagecmd, 512, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", mapname, gname, currplayers, maxplayers, hostname);
+						system(messagecmd);
+						free(messagecmd);
+						break;
+					}
+				}
+			}
 			
 		}
+		for(int i=0; i<GIDhistcountnew; i++) {
+			GIDhistory[i] = GIDhistorynew[i];
+		}
+		GIDhistcount = GIDhistcountnew;
 		uint32_t lobbyCode, motdlen;
 		fread(&lobbyCode, sizeof(uint32_t), 1, lobbyfile);
 		fread(&motdlen, sizeof(uint32_t), 1, lobbyfile);
