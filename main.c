@@ -27,6 +27,8 @@
 #define recvBuffSize 4096
 
 int interval = 2;
+int notify = 0;
+int notifynopass = 0;
 
 void delay(int milli_seconds) {
     clock_t start_time = clock();
@@ -207,16 +209,63 @@ void ClearScreen() {
 	printf("Lobby watcher v0.1 [use Ctr-C to stop]\n");
 }
 
+int mequalstr(char* trg, const char* chk) {
+	if(strlen(trg)!=strlen(chk))
+		return 0;
+	for(unsigned int c=0; c<strlen(trg); c++)
+		if(trg[c]!=chk[c])
+			return 0;
+	return 1;
+}
+
+int ArgParse(int argc, char **argv) {
+	for(int argcounter=1; argcounter<argc; argcounter++) {
+		if(mequalstr(argv[argcounter], "-t")) {
+			if(argcounter+1 >= argc) {
+				printf("Number expected after -t\n");
+				exit(1);
+			}
+			interval = atoi(argv[argcounter+1]);
+			argcounter++;
+		} else if(mequalstr(argv[argcounter], "-notify")) {
+			notify = 1;
+		} else if(mequalstr(argv[argcounter], "-n-nopass")) {
+			notifynopass = 1;
+		} else if(mequalstr(argv[argcounter], "--help") || mequalstr(argv[argcounter], "-h")) {
+			printf("   Usage: %s [args]\n", argv[0]);
+			printf("   Available args:\n");
+			printf("   \n");
+			printf("   == general ==\n");
+			printf("   -h    [--help]  Shows this page.\n");
+			printf("   -t <dealy>      Delay between refresh. (integer)\n");
+			printf("   -notify         Enable new room notification.\n");
+			printf("   -n-nopass       Don't notify for passworded rooms.\n");
+			printf("\n");
+			exit(0);
+		}
+	}
+	return 0;
+}
+
+char* dupesc(char* sstr) {
+	char* ret = malloc(1024);
+	int retc = 0;
+	for(int i=0; i<strlen(sstr); i++) {
+		if(sstr[i] != '\\' || sstr[i] != '\'' || sstr[i] != '\"') {
+			ret[retc] = sstr[i];
+			retc++;
+		}
+	}
+	ret[retc] = '\0';
+	return ret;
+}
+
 int main(int argc, char** argv) {
-	if(argc >= 2)
-		interval = atoi(argv[1]);
-	int notify = 0;
-	if(argc >= 3)
-		notify = atoi(argv[2]);
-	signal(SIGINT, CatchInterrupt);
 	setbuf(stdout, 0);
+	ArgParse(argc, argv);
 	//printf("Initializing player databse...\n");
 	InitPlayersLog();
+	signal(SIGINT, CatchInterrupt);
 	uint32_t GIDhistory[128] = {0};
 	int GIDhistcount = -1;
 	while(1) {
@@ -245,55 +294,55 @@ int main(int argc, char** argv) {
 			uint32_t gamestructversion = 0;
 			fread(&gamestructversion, sizeof(uint32_t), 1, lobbyfile);
 			gamestructversion = ntohl(gamestructversion);
-			
-			char gname[StringSize];
+
+			char gname[StringSize]; //game name
 			fread(&gname, sizeof(char), StringSize, lobbyfile);
-			
+
 			uint32_t dw[2];
 			fread(&dw, sizeof(uint32_t), 2, lobbyfile);
-			dw[0] = htonl(dw[0]);
+			dw[0] = htonl(dw[0]); //size of hostname
 			dw[1] = htonl(dw[1]);
-			
-			char hip[HostIPSize];
+
+			char hip[HostIPSize]; // host ip
 			fread(&hip, sizeof(char), HostIPSize, lobbyfile);
-			
+
 			uint32_t maxplayers;
 			fread(&maxplayers, sizeof(uint32_t), 1, lobbyfile);
 			maxplayers = htonl(maxplayers);
 			uint32_t currplayers;
 			fread(&currplayers, sizeof(uint32_t), 1, lobbyfile);
 			currplayers = htonl(currplayers);
-			
-			uint32_t dwflags[4];
+
+			uint32_t dwflags[4]; // unused
 			fread(&dwflags, sizeof(uint32_t), 4, lobbyfile);
-			
-			char sechosts[2][HostIPSize];
+
+			char sechosts[2][HostIPSize]; // secondary ips, unused
 			fread(&sechosts[0], sizeof(char), HostIPSize, lobbyfile);
 			fread(&sechosts[1], sizeof(char), HostIPSize, lobbyfile);
-			
-			char extra[extra_string_size];
+
+			char extra[extra_string_size]; // idk what is this, unused
 			fread(&extra, sizeof(char), extra_string_size, lobbyfile);
-			
-			char mapname[mapnameSize];
+
+			char mapname[mapnameSize]; // map name
 			fread(&mapname, sizeof(char), mapnameSize, lobbyfile);
-			
-			char hostname[hostnameSize];
+
+			char hostname[hostnameSize]; // host nickname
 			fread(&hostname, sizeof(char), hostnameSize, lobbyfile);
-			
-			char versionstr[StringSize];
+
+			char versionstr[StringSize]; // version string
 			fread(&versionstr, sizeof(char), StringSize, lobbyfile);
-			
-			char modlist[modlist_string_size];
+
+			char modlist[modlist_string_size]; // modlist
 			fread(&modlist, sizeof(char), modlist_string_size, lobbyfile);
-			
+
 			uint32_t VesionMajor, VersionMinor, IsPrivate, IsPure, Mods, GID, Limits, future1, future2;
 			fread(&VesionMajor, sizeof(uint32_t), 1, lobbyfile);
 			fread(&VersionMinor, sizeof(uint32_t), 1, lobbyfile);
 			fread(&IsPrivate, sizeof(uint32_t), 1, lobbyfile);
-			fread(&IsPure, sizeof(uint32_t), 1, lobbyfile);
-			fread(&Mods, sizeof(uint32_t), 1, lobbyfile);
-			fread(&GID, sizeof(uint32_t), 1, lobbyfile);
-			fread(&Limits, sizeof(uint32_t), 1, lobbyfile);
+			fread(&IsPure, sizeof(uint32_t), 1, lobbyfile); // map-mod
+			fread(&Mods, sizeof(uint32_t), 1, lobbyfile); // mods count
+			fread(&GID, sizeof(uint32_t), 1, lobbyfile); // game id
+			fread(&Limits, sizeof(uint32_t), 1, lobbyfile); // not working
 			fread(&future1, sizeof(uint32_t), 1, lobbyfile);
 			fread(&future2, sizeof(uint32_t), 1, lobbyfile);
 			VesionMajor = htonl(VesionMajor);
@@ -303,15 +352,15 @@ int main(int argc, char** argv) {
 			Mods = htonl(Mods);
 			GID = htonl(GID);
 			Limits = htonl(Limits);
-			
+
 			char extrastr[2048];
 			snprintf(extrastr, 2048, "%s%s%s %s", IsPrivate ? "Password " : "", IsPure ? "Map-mod " : "",  Limits & NO_VTOLS ? "No VTOL" : "", hip);
-			
+
 			char message[2000];
 			snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
 			strcat(msgcount, message);
 			LogPlayer(hostname, hip);
-			
+
 			GIDhistorynew[GIDhistcountnew] = GID;
 			GIDhistcountnew++;
 			if(GIDhistcount != -1) {
@@ -324,15 +373,24 @@ int main(int argc, char** argv) {
 						}
 					}
 					if(!found && notify) {
-						char* messagecmd = (char*)malloc(512);
-						snprintf(messagecmd, 512, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", mapname, gname, currplayers, maxplayers, hostname);
+						if(notifynopass && !IsPrivate) {
+							break;
+						}
+						char messagecmd[512] = {0};
+						char* escapedmapname = dupesc(mapname);
+						char* escapedgname = dupesc(gname);
+						char* escapedhostname = dupesc(hostname);
+						snprintf(messagecmd, 511, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", escapedmapname, escapedgname, currplayers, maxplayers, escapedhostname);
 						system(messagecmd);
 						free(messagecmd);
+						free(escapedmapname);
+						free(escapedgname);
+						free(escapedhostname);
 						break;
 					}
 				}
 			}
-			
+
 		}
 		for(int i=0; i<GIDhistcountnew; i++) {
 			GIDhistory[i] = GIDhistorynew[i];
