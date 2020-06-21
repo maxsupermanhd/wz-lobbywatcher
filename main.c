@@ -276,9 +276,9 @@ int main(int argc, char** argv) {
 	uint32_t GIDhistory[128] = {0};
 	int GIDhistcount = -1;
 	while(1) {
-		ClearScreen();
-		//printf("Connecting to lobby...\n");
+		printf("Connecting to lobby...\n");
 		char* msg = ConnectReadLobby();
+		ClearScreen();
 		if(msg == NULL) {
 			printf("Can not read lobby responce!\n");
 			return 1;
