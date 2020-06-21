@@ -382,7 +382,6 @@ int main(int argc, char** argv) {
 						char* escapedhostname = dupesc(hostname);
 						snprintf(messagecmd, 511, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", escapedmapname, escapedgname, currplayers, maxplayers, escapedhostname);
 						system(messagecmd);
-						free(messagecmd);
 						free(escapedmapname);
 						free(escapedgname);
 						free(escapedhostname);
