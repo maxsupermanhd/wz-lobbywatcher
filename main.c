@@ -24,11 +24,12 @@
 #define NO_TANKS 2
 #define NO_BORGS 4
 
-#define recvBuffSize 4096
+#define recvBuffSize 4096*3
 
 int interval = 2;
 int notify = 0;
 int notifynopass = 0;
+int compact = 0;
 
 void delay(int milli_seconds) {
     clock_t start_time = clock();
@@ -231,6 +232,8 @@ int ArgParse(int argc, char **argv) {
 			notify = 1;
 		} else if(mequalstr(argv[argcounter], "-n-nopass")) {
 			notifynopass = 1;
+		} else if(mequalstr(argv[argcounter], "-c")) {
+			compact = 1;
 		} else if(mequalstr(argv[argcounter], "--help") || mequalstr(argv[argcounter], "-h")) {
 			printf("   Usage: %s [args]\n", argv[0]);
 			printf("   Available args:\n");
@@ -240,8 +243,12 @@ int ArgParse(int argc, char **argv) {
 			printf("   -t <dealy>      Delay between refresh. (integer)\n");
 			printf("   -notify         Enable new room notification.\n");
 			printf("   -n-nopass       Don't notify for passworded rooms.\n");
+			printf("   -c              Compact view.\n");
 			printf("\n");
 			exit(0);
+		} else {
+			printf("Undefined argument [%s]\n", argv[argcounter]);
+			exit(1);
 		}
 	}
 	return 0;
@@ -289,7 +296,9 @@ int main(int argc, char** argv) {
 		snprintf(msgcount, 2000, "Games in lobby: %d\n", gamescount);
 		uint32_t GIDhistorynew[128] = {0};
 		int GIDhistcountnew = 0;
-		strcat(msgcount, "players |        room name          |      host       |            map            |     version    | \n");
+		if(!compact) {
+			strcat(msgcount, "players |        room name          |      host       |            map            |     version    | \n");
+		}
 		for(uint32_t gamenumber = 0; gamenumber < gamescount; gamenumber++) {
 			uint32_t gamestructversion = 0;
 			fread(&gamestructversion, sizeof(uint32_t), 1, lobbyfile);
@@ -354,10 +363,17 @@ int main(int argc, char** argv) {
 			Limits = htonl(Limits);
 
 			char extrastr[2048];
-			snprintf(extrastr, 2048, "%s%s%s %s", IsPrivate ? "Password " : "", IsPure ? "Map-mod " : "",  Limits & NO_VTOLS ? "No VTOL" : "", hip);
-
+			if(compact) {
+				snprintf(extrastr, 2048, "%s%s %s", IsPrivate ? "P" : ".", IsPure ? "M" : ".", hip);
+			} else {
+				snprintf(extrastr, 2048, "%s%s%s %s", IsPrivate ? "Password " : "", IsPure ? "Map-mod " : "",  Limits & NO_VTOLS ? "No VTOL" : "", hip);
+			}
 			char message[2000];
-			snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
+			if(compact) {
+				snprintf(message, 2000, "╔%2d/%-2d Map: [%-25.25s] [%-16.16s]\n╚     Host: [%-25.25s] (%-16.16s) %.24s\n", currplayers, maxplayers, mapname, gname, hostname, versionstr, extrastr);
+			} else {
+				snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
+			}
 			strcat(msgcount, message);
 			LogPlayer(hostname, hip);
 
