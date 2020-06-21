@@ -24,7 +24,9 @@
 #define NO_TANKS 2
 #define NO_BORGS 4
 
-#define recvBuffSize 9999999
+#define recvBuffSize 4096
+
+int interval = 2;
 
 void delay(int milli_seconds) {
     clock_t start_time = clock();
@@ -36,14 +38,12 @@ char* ConnectReadLobby() {
 	int sockfd = 0;
 	//printf("Allocating receive buffer... ");
 	char* recvBuff = (char*)malloc(recvBuffSize);
-	memset(recvBuff, 'g', recvBuffSize);
 	//printf("DONE!\nAllocating socket... ");
 	struct sockaddr_in serv_addr;
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("\n Error : Could not create socket \n");
 		return NULL;
 	}
-	memset(&serv_addr, '0', sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(9990);
 	if(inet_pton(AF_INET, "88.198.45.216", &serv_addr.sin_addr)<=0) {
@@ -92,6 +92,7 @@ void InitPlayersLog() {
 			printf("MAGIC READ\n");
 		if(strncmp(magic, "plkn", 4) != 0)
 			printf("WRONG MAGIC! %c%c%c%c\n", magic[0], magic[1], magic[2], magic[3]);
+		if(interval<1) {exit(0);}
 		check = fread(&playerscount, sizeof(int), 1, f);
 		if(check != 1)
 			printf("FREAD1\n");
@@ -207,13 +208,17 @@ void ClearScreen() {
 }
 
 int main(int argc, char** argv) {
-	int interval = 2;
 	if(argc >= 2)
 		interval = atoi(argv[1]);
+	int notify = 0;
+	if(argc >= 3)
+		notify = atoi(argv[2]);
 	signal(SIGINT, CatchInterrupt);
 	setbuf(stdout, 0);
 	//printf("Initializing player databse...\n");
 	InitPlayersLog();
+	uint32_t GIDhistory[128] = {0};
+	int GIDhistcount = -1;
 	while(1) {
 		ClearScreen();
 		//printf("Connecting to lobby...\n");
@@ -233,6 +238,8 @@ int main(int argc, char** argv) {
 		gamescount = ntohl(gamescount);
 		char msgcount[2000];
 		snprintf(msgcount, 2000, "Games in lobby: %d\n", gamescount);
+		uint32_t GIDhistorynew[128] = {0};
+		int GIDhistcountnew = 0;
 		strcat(msgcount, "players |        room name          |      host       |            map            |     version    | \n");
 		for(uint32_t gamenumber = 0; gamenumber < gamescount; gamenumber++) {
 			uint32_t gamestructversion = 0;
@@ -304,12 +311,16 @@ int main(int argc, char** argv) {
 			snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
 			strcat(msgcount, message);
 			LogPlayer(hostname, hip);
+			
+			GIDhistorynew[GIDhistcountnew] = GID;
+			GIDhistcountnew++;
+			
 		}
 		uint32_t lobbyCode, motdlen;
 		fread(&lobbyCode, sizeof(uint32_t), 1, lobbyfile);
 		fread(&motdlen, sizeof(uint32_t), 1, lobbyfile);
+		char* motd = NULL;
 		if(motdlen>0) {
-			char* motd;
 			motd = (char*)malloc(motdlen+1);
 			fread(motd, sizeof(char), motdlen, lobbyfile);
 			motd[motdlen-1]='\0';
@@ -330,6 +341,8 @@ int main(int argc, char** argv) {
 		}
 		puts(msgcount);
 		fclose(lobbyfile);
+		free(msg);
+		free(motd);
 		sleep(interval);
 	}
 	return 0;
