@@ -324,7 +324,7 @@ int main(int argc, char** argv) {
 						}
 					}
 					if(!found && notify) {
-						char* messagecmd = malloc(512);
+						char* messagecmd = (char*)malloc(512);
 						snprintf(messagecmd, 512, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", mapname, gname, currplayers, maxplayers, hostname);
 						system(messagecmd);
 						free(messagecmd);
