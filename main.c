@@ -255,7 +255,7 @@ int ArgParse(int argc, char **argv) {
 }
 
 char* dupesc(char* sstr) {
-	char* ret = malloc(1024);
+	char* ret = (char*)malloc(1024);
 	int retc = 0;
 	for(int i=0; i<strlen(sstr); i++) {
 		if(sstr[i] != '\\' || sstr[i] != '\'' || sstr[i] != '\"') {
