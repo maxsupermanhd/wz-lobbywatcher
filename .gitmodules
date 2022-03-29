@@ -1,0 +1,3 @@
+[submodule "wz-lobbyreader"]
+	path = wz-lobbyreader
+	url = git@github.com:maxsupermanhd/wz-lobbyreader.git

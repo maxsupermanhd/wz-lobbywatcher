@@ -57,3 +57,5 @@ dkms.conf
 l.bin
 
 players.known*
+
+build/

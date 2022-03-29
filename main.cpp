@@ -13,6 +13,10 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <string>
+
+#include "wz-lobbyreader/lobbyreader.h"
+
 #define	StringSize		64
 #define HostIPSize      40
 #define extra_string_size	159
@@ -30,49 +34,12 @@ int interval = 2;
 int notify = 0;
 int notifynopass = 0;
 int compact = 0;
+int timeout = 2;
 
 void delay(int milli_seconds) {
     clock_t start_time = clock();
     while (clock() < start_time + milli_seconds)
         ;
-}
-
-char* ConnectReadLobby() {
-	int sockfd = 0;
-	//printf("Allocating receive buffer... ");
-	char* recvBuff = (char*)malloc(recvBuffSize);
-	//printf("DONE!\nAllocating socket... ");
-	struct sockaddr_in serv_addr;
-	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		printf("\n Error : Could not create socket \n");
-		return NULL;
-	}
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(9990);
-	if(inet_pton(AF_INET, "88.198.45.216", &serv_addr.sin_addr)<=0) {
-		printf("\n inet_pton error occured\n");
-		return NULL;
-	}
-	//printf("DONE!\nConnecting... ");
-	if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-		printf("\n Error : Connect Failed \n");
-		return NULL;
-	}
-	//printf("DONE!\nRequesting list... ");
-	write(sockfd, "list", strlen("list"));
-	//printf("DONE!\nReading answer... ");
-	int n = 0, s = 0, t = 0;
-	while(1) {
-		n = read(sockfd, recvBuff+s, recvBuffSize-1-s);
-		if(n>0)
-			s+=n;
-		else
-			break;
-	}
-	recvBuff[s]='\0';
-	close(sockfd);
-	//printf("DONE!\n");
-	return recvBuff;
 }
 
 struct player {
@@ -207,7 +174,7 @@ void CatchInterrupt(int s) {
 
 void ClearScreen() {
 	printf("\033[H\033[J");
-	printf("Lobby watcher v0.1 [use Ctr-C to stop]\n");
+	printf("Lobby watcher v1.0 [use Ctr-C to stop]\n");
 }
 
 int mequalstr(char* trg, const char* chk) {
@@ -232,6 +199,13 @@ int ArgParse(int argc, char **argv) {
 			notify = 1;
 		} else if(mequalstr(argv[argcounter], "-n-nopass")) {
 			notifynopass = 1;
+		} else if(mequalstr(argv[argcounter], "-w")) {
+			if(argcounter+1 >= argc) {
+				printf("Number expected after -w\n");
+				exit(1);
+			}
+			timeout = atoi(argv[argcounter+1]);
+			argcounter++;
 		} else if(mequalstr(argv[argcounter], "-c")) {
 			compact = 1;
 		} else if(mequalstr(argv[argcounter], "--help") || mequalstr(argv[argcounter], "-h")) {
@@ -241,6 +215,7 @@ int ArgParse(int argc, char **argv) {
 			printf("   == general ==\n");
 			printf("   -h    [--help]  Shows this page.\n");
 			printf("   -t <dealy>      Delay between refresh. (integer)\n");
+			printf("   -w <timeout>    Seconds to timeout lobby connection.\n");
 			printf("   -notify         Enable new room notification.\n");
 			printf("   -n-nopass       Don't notify for passworded rooms.\n");
 			printf("   -c              Compact view.\n");
@@ -267,6 +242,20 @@ char* dupesc(char* sstr) {
 	return ret;
 }
 
+// from warzone2100/lib/framework/string_ext.h
+template <typename... P>
+static inline std::string astringf(char const *format, P &&... params) {
+	int len = snprintf(nullptr, 0, format, std::forward<P>(params)...);
+	if (len <= 0) {
+		return {};
+	}
+	std::string str;
+	str.resize(len + 1);
+	snprintf(&str[0], len + 1, format, std::forward<P>(params)...);
+	str.resize(len);
+	return str;
+}
+
 int main(int argc, char** argv) {
 	setbuf(stdout, 0);
 	ArgParse(argc, argv);
@@ -275,111 +264,40 @@ int main(int argc, char** argv) {
 	signal(SIGINT, CatchInterrupt);
 	uint32_t GIDhistory[128] = {0};
 	int GIDhistcount = -1;
+	LobbyResponse l;
 	while(1) {
-		printf("Connecting to lobby...\n");
-		char* msg = ConnectReadLobby();
-		if(msg == NULL) {
+		printf("Reading lobby...\n");
+		if(GetLobby(&l, timeout) == LOBBYREADER_FAIL) {
 			printf("Can not read lobby responce!\n");
 			WritePlayers();
 			return 1;
 		}
-		ClearScreen();
-		FILE* lobbyfile;
-		lobbyfile = fmemopen(msg, recvBuffSize, "r");
-		if(lobbyfile == NULL) {
-			printf("File opening error: %s\n", strerror(errno));
-			WritePlayers();
-			return 1;
-		}
-		uint32_t gamescount = 0;
-		fread(&gamescount, sizeof(uint32_t), 1, lobbyfile);
-		gamescount = ntohl(gamescount);
-		char msgcount[2000];
-		snprintf(msgcount, 2000, "Games in lobby: %d\n", gamescount);
 		uint32_t GIDhistorynew[128] = {0};
 		int GIDhistcountnew = 0;
+		ClearScreen();
+		std::string msg = astringf("Games in lobby: %d\n", l.rooms.size());
 		if(!compact) {
-			strcat(msgcount, "players |        room name          |      host       |            map            |     version    | \n");
+			msg += "players |        room name          |      host       |            map            |     version    | \n";
 		}
-		for(uint32_t gamenumber = 0; gamenumber < gamescount; gamenumber++) {
-			uint32_t gamestructversion = 0;
-			fread(&gamestructversion, sizeof(uint32_t), 1, lobbyfile);
-			gamestructversion = ntohl(gamestructversion);
-
-			char gname[StringSize]; //game name
-			fread(&gname, sizeof(char), StringSize, lobbyfile);
-
-			uint32_t dw[2];
-			fread(&dw, sizeof(uint32_t), 2, lobbyfile);
-			dw[0] = htonl(dw[0]); //size of hostname
-			dw[1] = htonl(dw[1]);
-
-			char hip[HostIPSize]; // host ip
-			fread(&hip, sizeof(char), HostIPSize, lobbyfile);
-
-			uint32_t maxplayers;
-			fread(&maxplayers, sizeof(uint32_t), 1, lobbyfile);
-			maxplayers = htonl(maxplayers);
-			uint32_t currplayers;
-			fread(&currplayers, sizeof(uint32_t), 1, lobbyfile);
-			currplayers = htonl(currplayers);
-
-			uint32_t dwflags[4]; // unused
-			fread(&dwflags, sizeof(uint32_t), 4, lobbyfile);
-
-			char sechosts[2][HostIPSize]; // secondary ips, unused
-			fread(&sechosts[0], sizeof(char), HostIPSize, lobbyfile);
-			fread(&sechosts[1], sizeof(char), HostIPSize, lobbyfile);
-
-			char extra[extra_string_size]; // idk what is this, unused
-			fread(&extra, sizeof(char), extra_string_size, lobbyfile);
-
-			char mapname[mapnameSize]; // map name
-			fread(&mapname, sizeof(char), mapnameSize, lobbyfile);
-
-			char hostname[hostnameSize]; // host nickname
-			fread(&hostname, sizeof(char), hostnameSize, lobbyfile);
-
-			char versionstr[StringSize]; // version string
-			fread(&versionstr, sizeof(char), StringSize, lobbyfile);
-
-			char modlist[modlist_string_size]; // modlist
-			fread(&modlist, sizeof(char), modlist_string_size, lobbyfile);
-
-			uint32_t VesionMajor, VersionMinor, IsPrivate, IsPure, Mods, GID, Limits, future1, future2;
-			fread(&VesionMajor, sizeof(uint32_t), 1, lobbyfile);
-			fread(&VersionMinor, sizeof(uint32_t), 1, lobbyfile);
-			fread(&IsPrivate, sizeof(uint32_t), 1, lobbyfile);
-			fread(&IsPure, sizeof(uint32_t), 1, lobbyfile); // map-mod
-			fread(&Mods, sizeof(uint32_t), 1, lobbyfile); // mods count
-			fread(&GID, sizeof(uint32_t), 1, lobbyfile); // game id
-			fread(&Limits, sizeof(uint32_t), 1, lobbyfile); // not working
-			fread(&future1, sizeof(uint32_t), 1, lobbyfile);
-			fread(&future2, sizeof(uint32_t), 1, lobbyfile);
-			VesionMajor = htonl(VesionMajor);
-			VersionMinor = htonl(VersionMinor);
-			IsPrivate = htonl(IsPrivate);
-			IsPure = htonl(IsPure);
-			Mods = htonl(Mods);
-			GID = htonl(GID);
-			Limits = htonl(Limits);
-
-			char extrastr[2048];
+		for(uint32_t gamenumber = 0; gamenumber < l.rooms.size(); gamenumber++) {
+			LobbyGame game = l.rooms[gamenumber];
+			std::string extrastr;
 			if(compact) {
-				snprintf(extrastr, 2048, "%s%s %s", IsPrivate ? "P" : ".", IsPure ? "M" : ".", hip);
+				extrastr = astringf("%s%s %s:%d", game.privateGame ? "P" : ".", game.privateGame ? "M" : ".", game.host.c_str(), game.hostPort);
 			} else {
-				snprintf(extrastr, 2048, "%s%s%s %s", IsPrivate ? "Password " : "", IsPure ? "Map-mod " : "",  Limits & NO_VTOLS ? "No VTOL" : "", hip);
+				extrastr = astringf("%s%s%s %s:%d", game.privateGame ? "Password " : "", game.privateGame ? "Map-mod " : "",  game.dwFlags & NO_VTOLS ? "No VTOL" : "", game.host.c_str(), game.hostPort);
 			}
 			char message[2000];
 			if(compact) {
-				snprintf(message, 2000, "╔%2d/%-2d Map: [%-25.25s] [%-36.36s]\n╚     Host: [%-25.25s] (%-16.16s) %.24s\n", currplayers, maxplayers, mapname, gname, hostname, versionstr, extrastr);
+				msg += astringf("╔%2d/%-2d Map: [%-25.25s][%-39.39s]\n╚     Host: [%-25.25s](%-16.16s) %s\n",
+					game.dwCurrentPlayers, game.dwMaxPlayers, game.mapname.c_str(), game.name.c_str(), game.hostname.c_str(), game.versionstring.c_str(), extrastr.c_str());
 			} else {
-				snprintf(message, 2000, "%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %.24s\n", currplayers, maxplayers, gname, hostname, mapname, versionstr, extrastr);
+				msg += astringf("%2d/%-2d   | %25.25s | %15.15s | %25.25s | %14.14s | %s\n",
+					game.dwCurrentPlayers, game.dwMaxPlayers, game.name.c_str(), game.hostname.c_str(), game.mapname.c_str(), game.versionstring.c_str(), extrastr.c_str());
 			}
-			strcat(msgcount, message);
-			LogPlayer(hostname, hip);
+			LogPlayer((char*)game.hostname.c_str(), (char*)game.host.c_str());
 
-			GIDhistorynew[GIDhistcountnew] = GID;
+			GIDhistorynew[GIDhistcountnew] = game.gameId;
 			GIDhistcountnew++;
 			if(GIDhistcount != -1) {
 				for(int i=0; i<GIDhistcountnew; i++) {
@@ -391,15 +309,15 @@ int main(int argc, char** argv) {
 						}
 					}
 					if(!found && notify) {
-						if(notifynopass && !IsPrivate) {
+						if(notifynopass && !game.privateGame) {
 							break;
 						}
-						char* messagecmd = malloc(512);
+						char* messagecmd = (char*)malloc(512);
 						for(int i=0; i<512; i++) {messagecmd[i] = '\0';}
-						char* escapedmapname = dupesc(mapname);
-						char* escapedgname = dupesc(gname);
-						char* escapedhostname = dupesc(hostname);
-						snprintf(messagecmd, 511, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", escapedmapname, escapedgname, currplayers, maxplayers, escapedhostname);
+						char* escapedmapname = dupesc((char*)game.mapname.c_str());
+						char* escapedgname = dupesc((char*)game.name.c_str());
+						char* escapedhostname = dupesc((char*)game.hostname.c_str());
+						snprintf(messagecmd, 511, "notify-send \"New room\" \"%s [%s] (%d/%d) by %s\"", escapedmapname, escapedgname, game.dwCurrentPlayers, game.dwMaxPlayers, escapedhostname);
 						system(messagecmd);
 						free(escapedmapname);
 						free(escapedgname);
@@ -414,33 +332,8 @@ int main(int argc, char** argv) {
 			GIDhistory[i] = GIDhistorynew[i];
 		}
 		GIDhistcount = GIDhistcountnew;
-		uint32_t lobbyCode, motdlen;
-		fread(&lobbyCode, sizeof(uint32_t), 1, lobbyfile);
-		fread(&motdlen, sizeof(uint32_t), 1, lobbyfile);
-		char* motd = NULL;
-		if(motdlen>0) {
-			motd = (char*)malloc(motdlen+1);
-			fread(motd, sizeof(char), motdlen, lobbyfile);
-			motd[motdlen-1]='\0';
-			strcat(msgcount, motd);
-		} else {
-			printf("len %ld\n", strlen(msg));
-			if(msg == NULL)
-				printf("NULL\n");
-			for(int i=1; i<strlen(msg); i++) {
-				printf("%02x ",msg[i-1]);
-				if(i % 8 == 0 && i != 0)
-					printf(" ");
-				if(i % 16 == 0 && i != 0)
-					printf(" | [%.*s]\n", 16, msg+(i-1)-16);
-				if(i+1 == strlen(msg))
-					printf(" | [%.*s]\n", i%16, msg+(i-1)-i%16);
-			}
-		}
-		puts(msgcount);
-		fclose(lobbyfile);
-		free(msg);
-		free(motd);
+		msg += l.motd.c_str();
+		puts(msg.c_str());
 		sleep(interval);
 	}
 	return 0;
