@@ -2,6 +2,13 @@
 
 Small script that shows up Warzone2100 lobby to stdout. (and more)
 
+## Get sources
+
+Clone github repository and initialize submodules.\
+`git clone https://github.com/maxsupermanhd/wz-lobbywatcher.git && cd wz-lobbywatcher`
+
+**Downloading zip from github will not include submodule, without it you will be unable to build lobbywatcher!**
+
 ## Compile
 
 Create build directory, configure cmake project, build it.\
